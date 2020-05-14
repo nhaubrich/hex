@@ -7,6 +7,91 @@
 #	can detect if a side has won
 import random
 
+class board2():
+    #TODO implement isNeighbor/isConnected. Maybe reuse isAdjacent?
+
+    #view will take some work
+
+    #legal moves: all legal moves - moveList
+
+    #array-based method feels clumsy, slow
+
+    #keep track of moves and connections as we go
+    def __init__(self,size,turn=0):
+        self.size = size
+        self.turn = turn
+
+        #initialize white with chains at top and bottom: (x,-1) and (x,size)
+        self.wChains = [set([(x,-1) for x in range(self.size)]), set([(x,self.size) for x in range(self.size)])]
+        self.bChains = [set([(-1,y) for y in range(self.size)]), set([(self.size,y) for y in range(self.size)])]
+        self.moveList = []
+        self.win = 0 #1 for white, -1 for black
+   
+    def move(self,move):
+        x,y = move
+        if move in moveList:
+            print ("Move "+str(move)+" already played")    
+            return
+        elif x<0 or self.size=<x or y<0 or self.size=<y:
+            print("Move "+str(move)+" out of bounds")
+            return
+        else:
+            moveList.append(move)
+            self.turn+=1
+            
+            if self.turn%2==1: #white
+                #check if move has neighbors in wChains
+                chainsToAddMoveTo = []
+                for i,chain in enumerate(wChains):
+                    for stone in chain:
+                        if isNeighbor(stone,move):
+                            chainsToAddMoveTo.append(i)
+                            break
+                for i in chainsToAddMoveTo:
+                    self.wChains[i].add(move)
+                
+                #if the new stone added to multiple chains, merge them
+                if len(chainsToAddMoveTo)>1:
+                    mergedChain = {}
+                    
+                    for i in chainsToAddMoveTo[::-1]: #reversed so largest indices are removed first
+                        mergedChain.add(self.wChains.pop(i)) #remove existing chain, but add it to mergedChain
+                
+                    #check for win
+                    #mergedChain contains (x,-1) and (x,size)
+                    if (0,-1) in mergedChain and (0,self.size) in mergedChain:
+                        self.win=1
+
+                    self.wChains.append(mergedChain)
+                
+            if self.turn%2==0: #black
+                #check if move has neighbors in wChains
+                chainsToAddMoveTo = []
+                for i,chain in enumerate(bChains):
+                    for stone in chain:
+                        if isNeighbor(stone,move):
+                            chainsToAddMoveTo.append(i)
+                            break
+                for i in chainsToAddMoveTo:
+                    self.bChains[i].add(move)
+                
+                #if the new stone added to multiple chains, merge them
+                if len(chainsToAddMoveTo)>1:
+                    mergedChain = {}
+                    
+                    for i in chainsToAddMoveTo[::-1]: #reversed so largest indices are removed first
+                        mergedChain.add(self.bChains.pop(i)) #remove existing chain, but add it to mergedChain
+                
+                    #check for win
+                    #mergedChain contains (x,-1) and (x,size)
+                    if (-1,0) in mergedChain and (self.size,0) in mergedChain:
+                        self.win=-1
+
+                    self.bChains.append(mergedChain)
+
+            return self.win
+
+
 class board():
 
     def __init__(self,size = 0):
