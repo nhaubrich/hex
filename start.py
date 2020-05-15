@@ -29,8 +29,9 @@ class board():
     #keep track of moves and connections as we go
 
     #need full history of connections for undoing
+    #OR generate a totally new temporary board for evaluation (pass moveList to init, then tmpboard.move(move)
 
-    def __init__(self,size):
+    def __init__(self,size,importMoveList=[]):
         self.size = size
         self.turn = 0
 
@@ -40,6 +41,10 @@ class board():
         self.moveList = []
         self.legalMoves = set([(x,y) for x in range(self.size) for y in range(self.size)])
         self.win = 0 #1 for white, -1 for black
+
+        
+        for move in importMoveList:
+            self.move(move)
    
     def move(self,move):
         x,y = move
@@ -139,18 +144,14 @@ class board():
         
         return
 
-    def undo(self):
-        if self.turn>0:
-            self.legalMoves.add(self.moveList.pop())
-            self.turn-=1
-            self.win = 0
-            
-            if (0,-1) in mergedChain and (0,self.size) in mergedChain:
-                self.win=1
-            if (-1,0) in mergedChain and (self.size,0) in mergedChain:
-                self.win=-1
-        else:
-            print("No moves left")
+    #def undo(self):        #Do, or do not. There is no undo
+    #    if self.turn>0:
+    #        self.legalMoves.add(self.moveList.pop())
+    #        self.turn-=1
+    #        self.win = 0
+    #        
+    #    else:
+    #        print("No moves left")
 
 
     def evaluate(self):       #map boardstate to a score
@@ -170,9 +171,11 @@ class board():
         if self.turn%2==0:  #white, maximizing
             score = -np.inf
             for move in self.legalMoves:
-                self.move(move)
-                moveValue = self.minmax(depth-1)
-                self.undo()
+
+                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
+
+                moveValue = tmpBoard.minmax(depth-1)
+                #self.undo()
                 if moveValue>score:
                     score = moveValue
             return score
@@ -180,23 +183,27 @@ class board():
         else: #black, minimizing
             score = np.inf
             for move in self.legalMoves:
-                self.move(move)
-                moveValue = self.minmax(depth-1)
-                self.undo()
+
+                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
+
+                moveValue = tmpBoard.minmax(depth-1)
+                #self.undo()
                 if moveValue<score:
                     score = moveValue
             return score
 
-    def minmax_and_move(self):
+    def minmax_and_move(self,depth=2):
         #calculate minmax of every move, then play highest/lowest score
         if self.turn%2==0: #white, select highest-scoring move
             score = -np.inf
             bestmove = (-1,-1)
             for move in self.legalMoves:
-                self.move(move)
-                moveValue = self.minmax(2)
-                self.undo()
-                print(move,moveValue,"MAX")
+                
+                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
+                
+                moveValue = tmpBoard.minmax(depth)
+                #self.undo()
+                #print(move,moveValue,"MAX")
                 if moveValue>score:
                     bestmove = move
                     score = moveValue
@@ -205,15 +212,17 @@ class board():
             score = np.inf
             bestmove = (-1,-1)
             for move in self.legalMoves:
-                self.move(move)
-                moveValue = self.minmax(2)
-                self.undo()
-                print(move,moveValue,"MIN")
+                
+                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
+                
+                moveValue = tmpBoard.minmax(depth)
+                #self.undo()
+                #print(move,moveValue,"MIN")
                 if moveValue<score:
                     bestmove = move
                     score = moveValue
 
-        print(bestmove,score)
+        #print(bestmove,score)
         self.move(bestmove)
         return
 
@@ -222,9 +231,8 @@ wwins = 0
 bwins = 0
 
 for size in [3]:
-    for x in range(1):
+    for x in range(10):
         testBoard = board(size)
-        testBoard.view()
         
         count = 0
         while testBoard.win==0:
@@ -235,22 +243,21 @@ for size in [3]:
             #move_ind = randrange(len(testBoard.legalMoves))
             #move = list(testBoard.legalMoves)[move_ind]
             
-            
-            
-            testBoard.minmax_and_move()
-            testBoard.view()
+            testBoard.minmax_and_move(3)
             
             print("")
             if testBoard.win==1:
                 print("white won!")
                 wwins+=1
+                testBoard.view()
             elif testBoard.win==-1:
                 print("black won!")
                 bwins+=1
+                testBoard.view()
                 
-    #print(size,wwins,bwins)
-    #p=wwins/(wwins+bwins)
-    #print(p,"+/-",(p*(1-p)*(wwins+bwins)**-1)**.5)
+    print(size,wwins,bwins)
+    p=wwins/(wwins+bwins)
+    print(p,"+/-",(p*(1-p)*(wwins+bwins)**-1)**.5)
 
 
 #class board():
