@@ -8,15 +8,16 @@
 from random import randrange,random
 import numpy as np
 from time import time
+import pickle
 
 def isAdjacent(stone1,stone2):
     x1,y1 = stone1
     x2,y2 = stone2
 
     isAdjacent = False
-    if y1==y2 and abs(x2-x1)==1:
+    if (y1==y2 and abs(x2-x1)==1):
         isAdjacent = True
-    if x1==x2 and abs(y2-y1)==1:
+    elif(x1==x2 and abs(y2-y1)==1):
         isAdjacent = True
     elif abs(y2-y1)==1 and abs(x2-x1)==1 and y2-y1==x1-x2:
         isAdjacent = True
@@ -28,35 +29,53 @@ class board():
     
 
     #keep track of moves and connections as we go
-
-    #need full history of connections for undoing
-    #OR generate a totally new temporary board for evaluation (pass moveList to init, then tmpboard.move(move)
-
-    def __init__(self,size,importMoveList=[]):
+    def __init__(self,size,importBoard=None):
         self.size = size
-        self.turn = 0
-
-        #initialize white with chains at top and bottom: (x,-1) and (x,size)
-        self.wChains = [set([(x,-1) for x in range(self.size)]), set([(x,self.size) for x in range(self.size)])]
-        self.bChains = [set([(-1,y) for y in range(self.size)]), set([(self.size,y) for y in range(self.size)])]
-        self.moveList = []
-        self.legalMoves = set([(x,y) for x in range(self.size) for y in range(self.size)])
-        self.win = 0 #1 for white, -1 for black
-
+        self.allMoves = set([(x,y) for x in range(self.size) for y in range(self.size)])
         
-        for move in importMoveList:
-            self.move(move)
-   
+        if importBoard==None:
+            self.turn = 0
+            #initialize white with chains at top and bottom: (x,-1) and (x,size)
+            self.wChains = [set([(x,-1) for x in range(self.size)]), set([(x,self.size) for x in range(self.size)])]
+            self.bChains = [set([(-1,y) for y in range(self.size)]), set([(self.size,y) for y in range(self.size)])]
+            self.moveList = []
+            self.legalMoves = self.allMoves 
+            self.win = 0 #1 for white, -1 for black
+
+        else:
+            self.turn = importBoard['turn']
+            self.wChains = importBoard['wChains']
+            self.bChains = importBoard['bChains']
+            self.moveList = importBoard['moveList']
+            self.legalMoves = importBoard['legalMoves']
+            self.win = importBoard['win']
+
+    
+    def export(self):
+        return {'size': self.size,
+         'turn': self.turn,
+         'wChains': self.wChains,
+         'bChains': self.bChains,
+         'moveList': self.moveList,
+         'legalMoves': self.legalMoves,
+         'win': self.win}
+                
+
+    #try to speed up move
+    #unify chain merging?
+    #maybe generate a dict of connections to replace isAdjacent?
     def move(self,move):
+        #self.view()
+        #print(move)
         x,y = move
 
         if move not in self.legalMoves:
-            print("Illegal move")
+            raise ValueError("Illegal move:",move,self.legalMoves)
+
             return 0 #a better return value?
         else:
             self.moveList.append(move)
-            self.legalMoves = set([(x,y) for x in range(self.size) for y in range(self.size)]) - set(self.moveList)
-            #self.legalMoves.remove(move)
+            self.legalMoves = self.allMoves - set(self.moveList)
             self.turn+=1
             
             #todo unify white/black moving
@@ -164,7 +183,7 @@ class board():
 
 
 
-    def view(self):
+    def view(self,depth=5):
         boardState =  [[0 for x in range(self.size)] for y in range(self.size)]
         for i,move in enumerate(self.moveList):
             x,y = move
@@ -174,18 +193,10 @@ class board():
                 boardState[y][x] = 2
 
         for i,row in enumerate(boardState[::-1]):
-            print((self.size-i)*" "+" ".join(str(x) for x in row))
+            print("\t"*(5-depth)+ (self.size-i)*" "+" ".join(str(x) for x in row))
         
         return
 
-    #def undo(self):        #Do, or do not. There is no undo
-    #    if self.turn>0:
-    #        self.legalMoves.add(self.moveList.pop())
-    #        self.turn-=1
-    #        self.win = 0
-    #        
-    #    else:
-    #        print("No moves left")
 
 
     def evaluate(self):       #map boardstate to a score
@@ -198,6 +209,7 @@ class board():
     
 
     def minmax(self,depth=3):
+        #self.view(depth)
         if depth<=0 or self.win!=0:
             score = self.evaluate()
             return score
@@ -206,11 +218,10 @@ class board():
         if self.turn%2==0:  #white, maximizing
             score = -np.inf
             for move in self.legalMoves:
-
-                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
+                tmpBoard = pickle.loads(pickle.dumps(self,-1))
+                tmpBoard.move(move)
 
                 moveValue = tmpBoard.minmax(depth-1)
-                #self.undo()
                 if moveValue>score:
                     score = moveValue
             return score
@@ -218,8 +229,8 @@ class board():
         else: #black, minimizing
             score = np.inf
             for move in self.legalMoves:
-
-                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
+                tmpBoard = pickle.loads(pickle.dumps(self,-1))
+                tmpBoard.move(move)
 
                 moveValue = tmpBoard.minmax(depth-1)
                 #self.undo()
@@ -228,29 +239,18 @@ class board():
             return score
 
     def minmax_and_move(self,depth=2):
-        #Can we cut down on the initial moves considered with symmetry?
         
-        #how do we detect a global symmetry?
-        #given a list of potential moves and the current moves
-
-        #moves are made on a 2d cooridinate system
-        #this system is invariant under swapping the endzones and rotating the endzones
-        #stones tend to break these symmetries
-
-        #e.g. 7x7 has 16 initial moves, and playing in the center gives 15 responses
-
-        #so check if the current board state has any of the symmetries, then if it does use this to cut down on the number of moves
-        #if sym(boardstate)==boardstate: has symmetry
-        #for move in movelist, remove sym(move) from movelist
         self.trimLegalMoves() 
+        
         #calculate minmax of every move, then play highest/lowest score
         if self.turn%2==0: #white, select highest-scoring move
             score = -np.inf
             bestmove = (-1,-1)
             for move in self.legalMoves:
                 
-                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
-                
+                tmpBoard = pickle.loads(pickle.dumps(self,-1))
+                tmpBoard.move(move)
+
                 moveValue = tmpBoard.minmax(depth)
                 #self.undo()
                 #print(move,moveValue,"MAX")
@@ -263,8 +263,8 @@ class board():
             bestmove = (-1,-1)
             for move in self.legalMoves:
                 
-                tmpBoard = board(self.size,importMoveList=self.moveList+[move])
-                
+                tmpBoard = pickle.loads(pickle.dumps(self,-1))
+                tmpBoard.move(move) 
                 moveValue = tmpBoard.minmax(depth)
                 #self.undo()
                 #print(move,moveValue,"MIN")
@@ -276,29 +276,32 @@ class board():
         self.move(bestmove)
         return
 
-
-wwins = 0
-bwins = 0
-
-for size in [4]:
-    start = time()
-    for x in range(1):
-        testBoard = board(size)
-        
-        while testBoard.win==0:
-            #move_ind = randrange(len(testBoard.legalMoves))
-            #move = list(testBoard.legalMoves)[move_ind]
-            #testBoard.trimLegalMoves() 
-            testBoard.minmax_and_move(3) #4 minutes on 4x4 with depth=3 
-            
-            if testBoard.win==1:
-                wwins+=1
-            elif testBoard.win==-1:
-                bwins+=1
-        testBoard.view()
-
-    end = time()
-    print("time {:4.2f}".format( end-start))
-    print(size,wwins,bwins)
-    p=wwins/(wwins+bwins)
-    print(p,"+/-",(p*(1-p)*(wwins+bwins)**-1)**.5)
+def test():
+    wwins = 0
+    bwins = 0
+    
+    for size in [4]:
+        start = time()
+        for x in range(10):
+            testBoard = board(size)
+            while testBoard.win==0:
+                if testBoard.turn%2==0:
+    
+                    testBoard.minmax_and_move(3) #4 minutes on 4x4 with depth=3 
+                else:
+                    move_ind = randrange(len(testBoard.legalMoves))
+                    move = list(testBoard.legalMoves)[move_ind]
+                    testBoard.move(move)
+    
+                if testBoard.win==1:
+                    wwins+=1
+                elif testBoard.win==-1:
+                    bwins+=1
+            print("")
+            testBoard.view()
+    
+        end = time()
+        print("time {:4.2f}".format( end-start))
+        print(size,wwins,bwins)
+        p=wwins/(wwins+bwins)
+        print(p,"+/-",(p*(1-p)*(wwins+bwins)**-1)**.5)
