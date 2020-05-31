@@ -1,5 +1,3 @@
-#randint(0,len(testBoard.legalMoves))what's the plan?
-#
 #have a hex board object that:
 #	can be viewed with state()
 #	can be updated with move(x,y)
@@ -9,6 +7,13 @@ from random import randrange,random
 import numpy as np
 from time import time
 import pickle
+from keras.models import Sequential,load_model
+
+
+model = load_model('hex_ai_2.h5')
+def nn_evaluate(boardState):
+    evaluation = model.predict(np.reshape(np.ravel(boardState),(1,-1)))
+    return evaluation
 
 def isAdjacent(stone1,stone2):
     x1,y1 = stone1
@@ -26,8 +31,6 @@ def isAdjacent(stone1,stone2):
 
 
 class board():
-    
-
     #keep track of moves and connections as we go
     def __init__(self,size,importBoard=None):
         self.size = size
@@ -201,11 +204,9 @@ class board():
 
     def evaluate(self):       #map boardstate to a score
         if self.win==0:
-            return random()*2-1
+            return nn_evaluate(self.makeBoardState())
         else:
             return self.win    
-    #plan for NN:
-    #return nn_evaluate(makeBoardState())
     
 
     def minmax(self,depth=3):
@@ -280,14 +281,14 @@ def test():
     wwins = 0
     bwins = 0
     
-    for size in [4]:
+    for size in [5]:
         start = time()
-        for x in range(10):
+        for x in range(1):
             testBoard = board(size)
             while testBoard.win==0:
                 if testBoard.turn%2==0:
     
-                    testBoard.minmax_and_move(3) #4 minutes on 4x4 with depth=3 
+                    testBoard.minmax_and_move(1) #4 minutes on 4x4 with depth=3 
                 else:
                     move_ind = randrange(len(testBoard.legalMoves))
                     move = list(testBoard.legalMoves)[move_ind]
