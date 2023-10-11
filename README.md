@@ -1,3 +1,3 @@
 # hex
 
-#Develop an AI to play John Nash's game of hex
+# Play John Nash's game of hex against artificial opponents
